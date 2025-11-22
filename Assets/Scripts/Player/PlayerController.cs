@@ -7,7 +7,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     [Header("Movement Settings")]
     public float moveSpeed = 5f;
     public float sprintMultiplier = 1.5f;
-    public float rotationSpeed = 1f;
+    public float rotationSpeed = 360f;
     public float jumpHeight = 2f;
     public float gravity = -9.81f;
 
@@ -60,8 +60,11 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         if (move.magnitude > 0.1f)
         {
             Quaternion targetRotation = Quaternion.LookRotation(move);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            // rotationSpeed is in degrees per second
+            float maxAngle = rotationSpeed * Time.deltaTime;
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, maxAngle);
         }
+
     }
 
     // Project input direction relative to camera

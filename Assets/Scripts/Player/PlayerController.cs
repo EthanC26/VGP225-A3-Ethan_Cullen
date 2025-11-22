@@ -7,8 +7,9 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     [Header("Movement Settings")]
     public float moveSpeed = 5f;
     public float sprintMultiplier = 1.5f;
-    private float jumpHeight = 2f;
-    private float gravity = -9.81f;
+    public float rotationSpeed = 1f;
+    public float jumpHeight = 2f;
+    public float gravity = -9.81f;
 
     [Header("References")]
     public Transform cameraTransform;
@@ -28,34 +29,16 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         inputActions.Player.SetCallbacks(this);
     }
 
-    private void OnEnable()
-    {
-        inputActions.Player.Enable();
-    }
-
-    private void OnDisable()
-    {
-        inputActions.Player.Disable();
-    }
+    private void OnEnable() => inputActions.Player.Enable();
+    private void OnDisable() => inputActions.Player.Disable();
 
     private void Update()
     {
-        HandleMovement();
-        //ApplyGravity();
+        Vector3 move = ProjectedMoveDirection(moveInput);
 
-
-        if (!controller.isGrounded)
-        {
-            Debug.Log("not gorunded");
-        }
-    }
-
-    private void HandleMovement()
-    {
-        // Horizontal movement (scaled by deltaTime)
-        Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
+        // Horizontal movement
         float speed = sprinting ? moveSpeed * sprintMultiplier : moveSpeed;
-        move *= speed * Time.deltaTime; // ✅ apply deltaTime here
+        Vector3 horizontalMove = move * speed;
 
         // Jump
         if (jumpPressed && controller.isGrounded)
@@ -70,43 +53,36 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
 
         velocity.y += gravity * Time.deltaTime;
 
-        // Combine horizontal and vertical
-        Vector3 finalMove = move;
-        finalMove.y = velocity.y * Time.deltaTime;
-
         // Move the character
-        controller.Move(finalMove);
+        controller.Move((horizontalMove + velocity) * Time.deltaTime);
+
+        // Rotate player to face movement direction
+        if (move.magnitude > 0.1f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(move);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+        }
     }
 
-
-
-    private void ApplyGravity()
+    // Project input direction relative to camera
+    private Vector3 ProjectedMoveDirection(Vector2 direction)
     {
-        if (controller.isGrounded && velocity.y < 0)
-            velocity.y = -2f;
+        Vector3 camRight = cameraTransform.right;
+        Vector3 camForward = cameraTransform.forward;
 
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        camForward.y = 0;
+        camRight.y = 0;
+        camForward.Normalize();
+        camRight.Normalize();
+
+        return camForward * direction.y + camRight * direction.x;
     }
 
     // --- Input Callbacks ---
-    public void OnMove(InputAction.CallbackContext context)
-    {
-        Debug.Log("Move input received");
-        moveInput = context.ReadValue<Vector2>();
-    }
-
-    public void OnLook(InputAction.CallbackContext context)
-    {
-        // Implement camera look here if needed
-    }
-
+    public void OnMove(InputAction.CallbackContext context) => moveInput = context.ReadValue<Vector2>();
+    public void OnLook(InputAction.CallbackContext context) { }
     public void OnJump(InputAction.CallbackContext context) => jumpPressed = context.ReadValueAsButton();
-
-    public void OnSprint(InputAction.CallbackContext context)
-    {
-        sprinting = context.ReadValue<float>() > 0;
-    }
+    public void OnSprint(InputAction.CallbackContext context) => sprinting = context.ReadValue<float>() > 0;
 
     public void OnAttack(InputAction.CallbackContext context) { }
     public void OnInteract(InputAction.CallbackContext context) { }

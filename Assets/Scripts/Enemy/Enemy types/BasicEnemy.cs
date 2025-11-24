@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 public class BasicEnemy : Enemy
@@ -55,7 +54,7 @@ public class BasicEnemy : Enemy
 
     private void UpdateAttack()
     {
-       Debug.Log("Attack state");
+      
         var toPlayer = player.position - transform.position;
         toPlayer.y = 0;
         Vector3 desired = Vector3.zero;
@@ -67,14 +66,13 @@ public class BasicEnemy : Enemy
             MoveSimple(desired);
         }
         else
-        {
-            // "hit" player
-            Debug.Log("Enemy hits player!");
+        { 
+           
             // push player back
             Vector3 pushDir = toPlayer.normalized;
            
-            
-           playerController.AddKnockBack(pushDir * attackPushBack);
+            playerController.TakeDamage(1);
+            playerController.AddKnockBack(pushDir * attackPushBack);
             // enter cooldown
             currentState = State.AttackCooldown;
             stateTimer = attackCooldownTime;
@@ -91,7 +89,7 @@ public class BasicEnemy : Enemy
 
     private void UpdateCoolDown()
     {
-        Debug.Log("Cooldown state not implemented yet");
+       
         if(stateTimer > 0f)
         {
             stateTimer -= Time.deltaTime;
@@ -105,7 +103,7 @@ public class BasicEnemy : Enemy
 
     private void UpdateIdle()
     {
-        Debug.Log("Idle state");
+     
         // wander: seek small random target, pick new once close
         Vector3 toTarget = wanderTarget - transform.position;
         toTarget.y = 0;
@@ -135,4 +133,10 @@ public class BasicEnemy : Enemy
         Vector2 r = UnityEngine.Random.insideUnitCircle * wanderRadius;
         wanderTarget = homePosition + new Vector3(r.x, 0, r.y);
     }
+    public void Die()
+    {
+        // play animation, particles, etc.
+        Destroy(gameObject);
+    }
+
 }

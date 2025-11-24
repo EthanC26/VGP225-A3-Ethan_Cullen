@@ -56,8 +56,7 @@ public class PatrolEnemy : Enemy
     {
         if (hit.collider.TryGetComponent<PlayerController>(out var player))
         {
-            // Damage the player
-           // player.TakeDamage(1);
+            player.TakeDamage(1);
 
             // Push player away
             Vector3 dir = (player.transform.position - transform.position).normalized;

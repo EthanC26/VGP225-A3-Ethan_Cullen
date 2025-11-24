@@ -5,36 +5,38 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerActions
 {
     [Header("Movement Settings")]
-    public float initSpeed = 5f;
-    public float maxSpeed = 15f;
-    public float moveAccel = 0.2f;
+    public float moveSpeed = 8f;        // constant speed
     public float rotationSpeed = 30f;
 
     [Header("Jump Settings")]
     public float jumpHeight = 0.1f;
     public float jumpTime = 0.7f;
 
+    [Header("Health Settings")]
+    private int maxHealth = 5;
+    private int minHealth = 0;
+    public int currentHealth;
+
     [Header("References")]
     public Transform cameraTransform;
 
-    // internal state
     private CharacterController controller;
     private InputSystem_Actions inputActions;
 
     private Vector2 moveInput;
-    private Vector3 velocity;
-    private float curSpeed;
+
+    private Vector3 velocity;             // vertical only
+    private Vector3 moveVelocity;         // horizontal movement (input)
+    private Vector3 knockbackVelocity;    // horizontal knockback, added to movement
 
     private bool jumpPressed;
     private bool sprinting;
 
-    // jump physics
     private float gravity;
     private float timeToJumpApex;
     private float initJumpVelocity;
 
-    // knockback
-    public Vector3 externalForces;
+    public float VerticalVelocity => velocity.y;
 
     private void Awake()
     {
@@ -48,7 +50,8 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         gravity = (-2 * jumpHeight) / (timeToJumpApex * timeToJumpApex);
         initJumpVelocity = -(gravity * timeToJumpApex);
 
-        curSpeed = initSpeed;
+        // initialize health
+        currentHealth = maxHealth;
     }
 
     private void OnEnable() => inputActions.Player.Enable();
@@ -56,31 +59,27 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
 
     private void Update()
     {
-        Vector3 desiredMoveDirection = ProjectedMoveDirection(moveInput);
+        Vector3 desiredMove = ProjectedMoveDirection(moveInput);
 
-        // ----------------------------------------------------------
-        // MOVEMENT SPEED WITH ACCELLERATION
-        // ----------------------------------------------------------
-        if (moveInput == Vector2.zero)
-            curSpeed = initSpeed;                // reset speed if not moving
+        // ---------------------------------------
+        // HORIZONTAL PLAYER MOVEMENT (constant speed)
+        // ---------------------------------------
+        if (moveInput.sqrMagnitude > 0.01f)
+            moveVelocity = desiredMove * moveSpeed;
         else
-        {
-            curSpeed += moveAccel * Time.deltaTime;
-            curSpeed = Mathf.Clamp(curSpeed, initSpeed, maxSpeed);
-        }
+            moveVelocity = Vector3.zero;
 
-        // horizontal x/z velocity
-        velocity.x = desiredMoveDirection.x * curSpeed;
-        velocity.z = desiredMoveDirection.z * curSpeed;
+        // ---------------------------------------
+        // COMBINE MOVEMENT + KNOCKBACK
+        // ---------------------------------------
+        Vector3 finalHorizontal = moveVelocity + knockbackVelocity;
 
-        // ----------------------------------------------------------
-        // APPLY EXTERNAL FORCES (knockback)
-        // ----------------------------------------------------------
-        velocity += externalForces;
+        velocity.x = finalHorizontal.x;
+        velocity.z = finalHorizontal.z;
 
-        // ----------------------------------------------------------
-        // JUMP / GRAVITY
-        // ----------------------------------------------------------
+        // ---------------------------------------
+        // GRAVITY + JUMP
+        // ---------------------------------------
         if (!controller.isGrounded)
         {
             velocity.y += gravity * Time.deltaTime;
@@ -91,22 +90,22 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
             jumpPressed = false;
         }
 
-        // ----------------------------------------------------------
-        // MOVE THE PLAYER
-        // ----------------------------------------------------------
+        // ---------------------------------------
+        // MOVE
+        // ---------------------------------------
         controller.Move(velocity * Time.deltaTime);
 
-        // fade external forces
-        externalForces = Vector3.Lerp(externalForces, Vector3.zero, 5f * Time.deltaTime);
+        // ---------------------------------------
+        // DECAY KNOCKBACK
+        // ---------------------------------------
+        knockbackVelocity = Vector3.Lerp(knockbackVelocity, Vector3.zero, 5f * Time.deltaTime);
 
-        // ----------------------------------------------------------
+        // ---------------------------------------
         // ROTATION
-        // ----------------------------------------------------------
-        Vector3 flatDir = new Vector3(desiredMoveDirection.x, 0f, desiredMoveDirection.z);
-
-        if (flatDir.sqrMagnitude > 0.0001f)
+        // ---------------------------------------
+        if (desiredMove.magnitude > 0.1f)
         {
-            Quaternion targetRot = Quaternion.LookRotation(flatDir, Vector3.up);
+            Quaternion targetRot = Quaternion.LookRotation(desiredMove);
             transform.rotation = Quaternion.Slerp(
                 transform.rotation,
                 targetRot,
@@ -115,7 +114,6 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         }
     }
 
-    // convert input to camera-relative movement
     private Vector3 ProjectedMoveDirection(Vector2 input)
     {
         Vector3 camRight = cameraTransform.right;
@@ -130,13 +128,36 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         return camForward * input.y + camRight * input.x;
     }
 
-    // external knockback from enemy hit
+    // Knockback from enemy
     public void AddKnockBack(Vector3 force)
     {
-        externalForces += force;
+        knockbackVelocity = force;
     }
 
-    // INPUT CALLBACKS ---------------------------------------------
+    public void TakeDamage(int damageAmt)
+    {
+        currentHealth -= damageAmt;
+        currentHealth = Mathf.Clamp(currentHealth, minHealth, maxHealth);
+        if (currentHealth <= 0)
+        {
+            Destroy(gameObject);
+
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+        Debug.Log("Player Health: " + currentHealth);
+    }
+
+    public void BounceFromEnemy()
+    {
+        velocity.y = initJumpVelocity * 0.75f; // small bounce
+    }
+
+    // INPUT CALLBACKS ----------------------------------------------------
     public void OnMove(InputAction.CallbackContext context)
         => moveInput = context.ReadValue<Vector2>();
 
@@ -146,7 +167,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     public void OnSprint(InputAction.CallbackContext context)
         => sprinting = context.ReadValue<float>() > 0;
 
-    // unused callbacks
+   
     public void OnLook(InputAction.CallbackContext context) { }
     public void OnAttack(InputAction.CallbackContext context) { }
     public void OnInteract(InputAction.CallbackContext context) { }

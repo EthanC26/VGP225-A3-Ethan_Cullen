@@ -8,7 +8,10 @@ public class PatrolEnemy : Enemy
     public float pushForce = 8f;
 
     private int currentIndex = 0;
-  
+
+    public float hitCooldown = 0.5f; // half a second between hits
+    private float lastHitTime = -10f;
+
     protected override void Awake()
     {
         base.Awake();
@@ -34,6 +37,7 @@ public class PatrolEnemy : Enemy
         // Reached waypoint
         if (dist < arriveRadius)
         {
+            Debug.Log("Reached waypoint " + currentIndex);
             SelectNextWaypoint();
         }
     }
@@ -56,11 +60,16 @@ public class PatrolEnemy : Enemy
     {
         if (hit.collider.TryGetComponent<PlayerController>(out var player))
         {
-            player.TakeDamage(1);
+            if (Time.time - lastHitTime >= hitCooldown)
+            {
+                player.TakeDamage(1);
 
-            // Push player away
-            Vector3 dir = (player.transform.position - transform.position).normalized;
-            player.AddKnockBack(dir * pushForce);
+                // Push player away
+                Vector3 dir = (player.transform.position - transform.position).normalized;
+                player.AddKnockBack(dir * pushForce);
+
+                lastHitTime = Time.time;
+            }
         }
 
         // Collision with other enemies → reverse path

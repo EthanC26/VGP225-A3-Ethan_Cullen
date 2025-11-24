@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerActions
@@ -37,7 +38,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     private float initJumpVelocity;
 
     public float VerticalVelocity => velocity.y;
-
+    public event System.Action<int> OnHealthChanged;
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -138,15 +139,13 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     {
         currentHealth -= damageAmt;
         currentHealth = Mathf.Clamp(currentHealth, minHealth, maxHealth);
+
+        OnHealthChanged?.Invoke(currentHealth);
+
         if (currentHealth <= 0)
         {
-            Destroy(gameObject);
-
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
+            string sceneName = (SceneManager.GetActiveScene().name.Contains("Level")) ? "GameOver" : "Level";
+            SceneManager.LoadScene(sceneName);
         }
 
         Debug.Log("Player Health: " + currentHealth);

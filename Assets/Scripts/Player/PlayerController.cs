@@ -22,6 +22,9 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
 
     private InputSystem_Actions inputActions;
 
+    //knockback
+    public Vector3 externalForces;
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -35,10 +38,11 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     private void Update()
     {
         Vector3 move = ProjectedMoveDirection(moveInput);
-
+     
         // Horizontal movement
         float speed = sprinting ? moveSpeed * sprintMultiplier : moveSpeed;
         Vector3 horizontalMove = move * speed;
+        horizontalMove += externalForces;
 
         // Jump
         if (jumpPressed && controller.isGrounded)
@@ -65,6 +69,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
             transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, maxAngle);
         }
 
+        externalForces = Vector3.Lerp(externalForces, Vector3.zero, 5f * Time.deltaTime);
     }
 
     // Project input direction relative to camera
@@ -79,6 +84,11 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         camRight.Normalize();
 
         return camForward * direction.y + camRight * direction.x;
+    }
+
+    public void AddKnockBack(Vector3 force)
+    {
+        externalForces += force;
     }
 
     // --- Input Callbacks ---

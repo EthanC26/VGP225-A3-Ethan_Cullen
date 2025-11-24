@@ -476,12 +476,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 84e588efc3010814ab89b9de5f77ef5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 15
+  moveSpeed: 5
   sprintMultiplier: 0
   rotationSpeed: 180
   jumpHeight: 2
   gravity: -9.81
   cameraTransform: {fileID: 330585546}
+  externalForces: {x: 0, y: 0, z: 0}
 --- !u!143 &385891820
 CharacterController:
   m_ObjectHideFlags: 0
@@ -910,11 +911,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e006089712a8f9d45bf2a610231a41b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  horizontalSpeed: 4
+  horizontalSpeed: 10
   velocity: {x: 0, y: 0, z: 0}
   currentState: 0
   detectRadius: 8
-  wanderRadius: 6
+  wanderRadius: 10
   arriveRadius: 1
   attackCooldownTime: 1.5
   attackRange: 1.2

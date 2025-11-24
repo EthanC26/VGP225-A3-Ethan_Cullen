@@ -14,13 +14,14 @@ public class BasicEnemy : Enemy
 
     [Header("AI params")]
     public float detectRadius = 8f;
-    public float wanderRadius = 6f;
+    public float wanderRadius = 20f;
     public float arriveRadius = 1f; // for arrival slowing
     public float attackCooldownTime = 1.5f;
-    public float attackRange = 1.2f; // close enough to "hit"
+    public float attackRange = 3f; // close enough to "hit"
     public float attackPushBack = 3f;
 
     Transform player;
+    PlayerController playerController;
     Vector3 wanderTarget;
     float stateTimer = 0f;
 
@@ -32,6 +33,7 @@ public class BasicEnemy : Enemy
         homePosition = transform.position;
         PickNewWanderTarget();
         player = GameObject.FindGameObjectWithTag("Player").transform;
+        playerController = player.GetComponent<PlayerController>();
     }
 
     // Update is called once per frame
@@ -53,18 +55,52 @@ public class BasicEnemy : Enemy
 
     private void UpdateAttack()
     {
-       Debug.Log("Attack state not implemented yet");
-        
-        if (player != null && Vector3.Distance(player.position, transform.position) >= detectRadius)
+       Debug.Log("Attack state");
+        var toPlayer = player.position - transform.position;
+        toPlayer.y = 0;
+        Vector3 desired = Vector3.zero;
+        float dist = toPlayer.magnitude;
+        if(dist > attackRange)
         {
-            currentState = State.Attack;
+            // move toward player
+            desired = toPlayer.normalized * horizontalSpeed;
+            MoveSimple(desired);
+        }
+        else
+        {
+            // "hit" player
+            Debug.Log("Enemy hits player!");
+            // push player back
+            Vector3 pushDir = toPlayer.normalized;
+           
+            
+           playerController.AddKnockBack(pushDir * attackPushBack);
+            // enter cooldown
+            currentState = State.AttackCooldown;
+            stateTimer = attackCooldownTime;
             return;
         }
+        if (player != null && Vector3.Distance(player.position, transform.position) >= detectRadius)
+        {
+            currentState = State.Idle;
+            return;
+        }
+
+       
     }
 
     private void UpdateCoolDown()
     {
         Debug.Log("Cooldown state not implemented yet");
+        if(stateTimer > 0f)
+        {
+            stateTimer -= Time.deltaTime;
+        }
+        else
+        {
+            // return to Attack state to check distance again
+            currentState = State.Attack;
+        }
     }
 
     private void UpdateIdle()

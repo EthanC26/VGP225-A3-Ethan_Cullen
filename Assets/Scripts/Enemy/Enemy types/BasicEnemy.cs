@@ -10,13 +10,11 @@ public class BasicEnemy : Enemy
     }
     public State currentState = State.Idle;
 
-
     [Header("AI params")]
     public float detectRadius = 8f;
     public float wanderRadius = 20f;
-    public float arriveRadius = 1f; // for arrival slowing
+    public float arriveRadius = 1f;
     public float attackCooldownTime = 1.5f;
-    public float attackRange = 3f; // close enough to "hit"
     public float attackPushBack = 3f;
 
     Transform player;
@@ -26,16 +24,19 @@ public class BasicEnemy : Enemy
 
     private Vector3 homePosition;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    protected override void Awake()
+    {
+        base.Awake();
+        homePosition = transform.position;
+    }
+
     void Start()
     {
-        homePosition = transform.position;
         PickNewWanderTarget();
         player = GameObject.FindGameObjectWithTag("Player").transform;
         playerController = player.GetComponent<PlayerController>();
     }
 
-    // Update is called once per frame
     void Update()
     {
         switch (currentState)
@@ -47,96 +48,82 @@ public class BasicEnemy : Enemy
                 UpdateAttack();
                 break;
             case State.AttackCooldown:
-                UpdateCoolDown();
+                UpdateCooldown();
                 break;
-        }
-    }
-
-    private void UpdateAttack()
-    {
-      
-        var toPlayer = player.position - transform.position;
-        toPlayer.y = 0;
-        Vector3 desired = Vector3.zero;
-        float dist = toPlayer.magnitude;
-        if(dist > attackRange)
-        {
-            // move toward player
-            desired = toPlayer.normalized * horizontalSpeed;
-            MoveSimple(desired);
-        }
-        else
-        { 
-           
-            // push player back
-            Vector3 pushDir = toPlayer.normalized;
-           
-            playerController.TakeDamage(1);
-            playerController.AddKnockBack(pushDir * attackPushBack);
-            // enter cooldown
-            currentState = State.AttackCooldown;
-            stateTimer = attackCooldownTime;
-            return;
-        }
-        if (player != null && Vector3.Distance(player.position, transform.position) >= detectRadius)
-        {
-            currentState = State.Idle;
-            return;
-        }
-
-       
-    }
-
-    private void UpdateCoolDown()
-    {
-       
-        if(stateTimer > 0f)
-        {
-            stateTimer -= Time.deltaTime;
-        }
-        else
-        {
-            // return to Attack state to check distance again
-            currentState = State.Attack;
         }
     }
 
     private void UpdateIdle()
     {
-     
-        // wander: seek small random target, pick new once close
+        // wander
         Vector3 toTarget = wanderTarget - transform.position;
         toTarget.y = 0;
-        Vector3 desired = Vector3.zero;
         float dist = toTarget.magnitude;
+        Vector3 desired = Vector3.zero;
+
         if (dist < 0.5f) PickNewWanderTarget();
         else
         {
-            // arrive behavior to avoid instantaneous stops
             float speed = horizontalSpeed * (dist > arriveRadius ? 1f : dist / arriveRadius);
             desired = toTarget.normalized * speed;
         }
 
-
-        // transition to Attack
+        // transition to attack if player in range
         if (player != null && Vector3.Distance(player.position, transform.position) <= detectRadius)
         {
             currentState = State.Attack;
-            return;
         }
-
 
         MoveSimple(desired);
     }
-    void PickNewWanderTarget()
+
+    private void UpdateAttack()
     {
-        Vector2 r = UnityEngine.Random.insideUnitCircle * wanderRadius;
-        wanderTarget = homePosition + new Vector3(r.x, 0, r.y);
-    }
-    public void Die()
-    {
-        // play animation, particles, etc.
-        Destroy(gameObject);
+        if (player == null) return;
+
+        // move toward player
+        Vector3 toPlayer = player.position - transform.position;
+        toPlayer.y = 0;
+        MoveSimple(toPlayer.normalized * horizontalSpeed);
+
+        // if player moves out of detect radius, go back to idle
+        if (Vector3.Distance(player.position, transform.position) > detectRadius)
+            currentState = State.Idle;
     }
 
+    private void UpdateCooldown()
+    {
+        if (stateTimer > 0f)
+            stateTimer -= Time.deltaTime;
+        else
+            currentState = State.Attack;
+    }
+
+    private void PickNewWanderTarget()
+    {
+        Vector2 r = Random.insideUnitCircle * wanderRadius;
+        wanderTarget = homePosition + new Vector3(r.x, 0, r.y);
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (!hit.collider.CompareTag("Player")) return;
+
+        if (playerController != null)
+        {
+            // push player and apply damage
+            Vector3 pushDir = (playerController.transform.position - transform.position).normalized;
+            playerController.TakeDamage(1);
+            playerController.AddKnockBack(pushDir * attackPushBack);
+
+            // enter attack cooldown
+            currentState = State.AttackCooldown;
+            stateTimer = attackCooldownTime;
+        }
+    }
+
+    public void Die()
+    {
+        Destroy(gameObject);
+    }
 }

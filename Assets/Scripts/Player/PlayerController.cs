@@ -156,6 +156,15 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         velocity.y = initJumpVelocity * 0.75f; // small bounce
     }
 
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("End"))
+        {
+            string sceneName = (SceneManager.GetActiveScene().name.Contains("Level")) ? "GameOver" : "Level";
+            SceneManager.LoadScene(sceneName);
+        }
+    }
+
     // INPUT CALLBACKS ----------------------------------------------------
     public void OnMove(InputAction.CallbackContext context)
         => moveInput = context.ReadValue<Vector2>();

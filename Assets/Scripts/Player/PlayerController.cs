@@ -5,31 +5,50 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerActions
 {
     [Header("Movement Settings")]
-    public float moveSpeed = 5f;
-    public float sprintMultiplier = 1.5f;
-    public float rotationSpeed = 360f;
-    public float jumpHeight = 2f;
-    public float gravity = -9.81f;
+    public float initSpeed = 5f;
+    public float maxSpeed = 15f;
+    public float moveAccel = 0.2f;
+    public float rotationSpeed = 30f;
+
+    [Header("Jump Settings")]
+    public float jumpHeight = 0.1f;
+    public float jumpTime = 0.7f;
 
     [Header("References")]
     public Transform cameraTransform;
 
+    // internal state
     private CharacterController controller;
-    private Vector3 velocity;
-    private Vector2 moveInput;
-    private bool sprinting;
-    private bool jumpPressed;
-
     private InputSystem_Actions inputActions;
 
-    //knockback
+    private Vector2 moveInput;
+    private Vector3 velocity;
+    private float curSpeed;
+
+    private bool jumpPressed;
+    private bool sprinting;
+
+    // jump physics
+    private float gravity;
+    private float timeToJumpApex;
+    private float initJumpVelocity;
+
+    // knockback
     public Vector3 externalForces;
 
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+
         inputActions = new InputSystem_Actions();
         inputActions.Player.SetCallbacks(this);
+
+        // calculate jump physics
+        timeToJumpApex = jumpTime / 2f;
+        gravity = (-2 * jumpHeight) / (timeToJumpApex * timeToJumpApex);
+        initJumpVelocity = -(gravity * timeToJumpApex);
+
+        curSpeed = initSpeed;
     }
 
     private void OnEnable() => inputActions.Player.Enable();
@@ -37,66 +56,98 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
 
     private void Update()
     {
-        Vector3 move = ProjectedMoveDirection(moveInput);
-     
-        // Horizontal movement
-        float speed = sprinting ? moveSpeed * sprintMultiplier : moveSpeed;
-        Vector3 horizontalMove = move * speed;
-        horizontalMove += externalForces;
+        Vector3 desiredMoveDirection = ProjectedMoveDirection(moveInput);
 
-        // Jump
-        if (jumpPressed && controller.isGrounded)
+        // ----------------------------------------------------------
+        // MOVEMENT SPEED WITH ACCELLERATION
+        // ----------------------------------------------------------
+        if (moveInput == Vector2.zero)
+            curSpeed = initSpeed;                // reset speed if not moving
+        else
         {
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            curSpeed += moveAccel * Time.deltaTime;
+            curSpeed = Mathf.Clamp(curSpeed, initSpeed, maxSpeed);
+        }
+
+        // horizontal x/z velocity
+        velocity.x = desiredMoveDirection.x * curSpeed;
+        velocity.z = desiredMoveDirection.z * curSpeed;
+
+        // ----------------------------------------------------------
+        // APPLY EXTERNAL FORCES (knockback)
+        // ----------------------------------------------------------
+        velocity += externalForces;
+
+        // ----------------------------------------------------------
+        // JUMP / GRAVITY
+        // ----------------------------------------------------------
+        if (!controller.isGrounded)
+        {
+            velocity.y += gravity * Time.deltaTime;
+        }
+        else
+        {
+            velocity.y = jumpPressed ? initJumpVelocity : -controller.minMoveDistance;
             jumpPressed = false;
         }
 
-        // Gravity
-        if (controller.isGrounded && velocity.y < 0)
-            velocity.y = -2f;
+        // ----------------------------------------------------------
+        // MOVE THE PLAYER
+        // ----------------------------------------------------------
+        controller.Move(velocity * Time.deltaTime);
 
-        velocity.y += gravity * Time.deltaTime;
-
-        // Move the character
-        controller.Move((horizontalMove + velocity) * Time.deltaTime);
-
-        // Rotate player to face movement direction
-        if (move.magnitude > 0.1f)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(move);
-            // rotationSpeed is in degrees per second
-            float maxAngle = rotationSpeed * Time.deltaTime;
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, maxAngle);
-        }
-
+        // fade external forces
         externalForces = Vector3.Lerp(externalForces, Vector3.zero, 5f * Time.deltaTime);
+
+        // ----------------------------------------------------------
+        // ROTATION
+        // ----------------------------------------------------------
+        Vector3 flatDir = new Vector3(desiredMoveDirection.x, 0f, desiredMoveDirection.z);
+
+        if (flatDir.sqrMagnitude > 0.0001f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(flatDir, Vector3.up);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRot,
+                rotationSpeed * Time.deltaTime
+            );
+        }
     }
 
-    // Project input direction relative to camera
-    private Vector3 ProjectedMoveDirection(Vector2 direction)
+    // convert input to camera-relative movement
+    private Vector3 ProjectedMoveDirection(Vector2 input)
     {
         Vector3 camRight = cameraTransform.right;
         Vector3 camForward = cameraTransform.forward;
 
-        camForward.y = 0;
         camRight.y = 0;
-        camForward.Normalize();
-        camRight.Normalize();
+        camForward.y = 0;
 
-        return camForward * direction.y + camRight * direction.x;
+        camRight.Normalize();
+        camForward.Normalize();
+
+        return camForward * input.y + camRight * input.x;
     }
 
+    // external knockback from enemy hit
     public void AddKnockBack(Vector3 force)
     {
         externalForces += force;
     }
 
-    // --- Input Callbacks ---
-    public void OnMove(InputAction.CallbackContext context) => moveInput = context.ReadValue<Vector2>();
-    public void OnLook(InputAction.CallbackContext context) { }
-    public void OnJump(InputAction.CallbackContext context) => jumpPressed = context.ReadValueAsButton();
-    public void OnSprint(InputAction.CallbackContext context) => sprinting = context.ReadValue<float>() > 0;
+    // INPUT CALLBACKS ---------------------------------------------
+    public void OnMove(InputAction.CallbackContext context)
+        => moveInput = context.ReadValue<Vector2>();
 
+    public void OnJump(InputAction.CallbackContext context)
+        => jumpPressed = context.ReadValueAsButton();
+
+    public void OnSprint(InputAction.CallbackContext context)
+        => sprinting = context.ReadValue<float>() > 0;
+
+    // unused callbacks
+    public void OnLook(InputAction.CallbackContext context) { }
     public void OnAttack(InputAction.CallbackContext context) { }
     public void OnInteract(InputAction.CallbackContext context) { }
     public void OnCrouch(InputAction.CallbackContext context) { }

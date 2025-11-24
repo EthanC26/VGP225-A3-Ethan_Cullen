@@ -135,9 +135,4 @@ public class BasicEnemy : Enemy
         Vector2 r = UnityEngine.Random.insideUnitCircle * wanderRadius;
         wanderTarget = homePosition + new Vector3(r.x, 0, r.y);
     }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        
-    }
 }

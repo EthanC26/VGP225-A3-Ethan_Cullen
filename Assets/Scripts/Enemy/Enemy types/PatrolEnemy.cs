@@ -8,8 +8,7 @@ public class PatrolEnemy : Enemy
     public float pushForce = 8f;
 
     private int currentIndex = 0;
-    private bool forward = true; // waypoint order direction
-
+  
     protected override void Awake()
     {
         base.Awake();
@@ -41,18 +40,34 @@ public class PatrolEnemy : Enemy
 
     private void SelectNextWaypoint()
     {
-        if (forward)
+        if(waypoints.Length <= 1) return;
+
+        int next;
+        do
         {
-            currentIndex++;
-            if (currentIndex >= waypoints.Length)
-                currentIndex = 0; // loop
+            next = Random.Range(0, waypoints.Length);
         }
-        else
-        {
-            currentIndex--;
-            if (currentIndex < 0)
-                currentIndex = waypoints.Length - 1;
-        }
+        while (next == currentIndex);
+
+        currentIndex = next;
     }
 
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit.collider.TryGetComponent<PlayerController>(out var player))
+        {
+            // Damage the player
+           // player.TakeDamage(1);
+
+            // Push player away
+            Vector3 dir = (player.transform.position - transform.position).normalized;
+            player.AddKnockBack(dir * pushForce);
+        }
+
+        // Collision with other enemies → reverse path
+        //if (hit.collider.TryGetComponent<Enemy>(out var other) && other != this)
+        //{
+        //    forward = !forward; // reverse direction
+        //}
+    }
 }

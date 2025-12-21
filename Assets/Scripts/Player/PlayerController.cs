@@ -25,6 +25,11 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     private CharacterController controller;
     private InputSystem_Actions inputActions;
 
+    [Header("AUdio")]
+    AudioSource AS;
+    public AudioClip jumpSound;
+    public AudioClip HopSound;
+
     private Vector2 moveInput;
 
     private Vector3 velocity;             // vertical only
@@ -44,6 +49,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     {
         controller = GetComponent<CharacterController>();
         anim = GetComponentInChildren<Animator>();
+        AS = GetComponent<AudioSource>();
 
         inputActions = new InputSystem_Actions();
         inputActions.Player.SetCallbacks(this);
@@ -64,6 +70,10 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     {
         anim.SetBool("Jumping", !controller.isGrounded);
         anim.SetFloat("Velocity", moveInput.magnitude * (sprinting ? 2f : 1f));
+        if(jumpPressed && controller.isGrounded)
+        {
+            AS.PlayOneShot(jumpSound);
+        }
 
         Vector3 desiredMove = ProjectedMoveDirection(moveInput);
 
@@ -159,6 +169,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     public void BounceFromEnemy()
     {
         velocity.y = initJumpVelocity * 0.75f; // small bounce
+        AS.PlayOneShot(HopSound);
     }
 
     private void OnTriggerEnter(Collider other)

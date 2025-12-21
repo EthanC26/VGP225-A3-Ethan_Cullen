@@ -14,13 +14,14 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     public float jumpTime = 0.7f;
 
     [Header("Health Settings")]
-    private int maxHealth = 5;
+    private int maxHealth = 10;
     private int minHealth = 0;
     public int currentHealth;
 
     [Header("References")]
     public Transform cameraTransform;
 
+    Animator anim;
     private CharacterController controller;
     private InputSystem_Actions inputActions;
 
@@ -42,6 +43,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        anim = GetComponentInChildren<Animator>();
 
         inputActions = new InputSystem_Actions();
         inputActions.Player.SetCallbacks(this);
@@ -60,6 +62,9 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
 
     private void Update()
     {
+        anim.SetBool("Jumping", !controller.isGrounded);
+        anim.SetFloat("Velocity", moveInput.magnitude * (sprinting ? 2f : 1f));
+
         Vector3 desiredMove = ProjectedMoveDirection(moveInput);
 
         // ---------------------------------------
@@ -87,7 +92,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         }
         else
         {
-            velocity.y = jumpPressed ? initJumpVelocity : -controller.minMoveDistance;
+            velocity.y = jumpPressed ? initJumpVelocity : -2f;
             jumpPressed = false;
         }
 
@@ -165,6 +170,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
         }
     }
 
+    #region Input Callbacks
     // INPUT CALLBACKS ----------------------------------------------------
     public void OnMove(InputAction.CallbackContext context)
         => moveInput = context.ReadValue<Vector2>();
@@ -182,4 +188,5 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     public void OnCrouch(InputAction.CallbackContext context) { }
     public void OnPrevious(InputAction.CallbackContext context) { }
     public void OnNext(InputAction.CallbackContext context) { }
+    #endregion
 }
